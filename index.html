@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <link rel="icon" type="svg" sizes="16x16" href="https://upload.wikimedia.org/wikipedia/commons/0/01/E003.svg">
+    <title>Les pharmacies rennaises</title>
+    <meta name='robots' content='noindex, nofollow'>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700' rel='stylesheet'>
+
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.css' rel='stylesheet' />
+
+    <script src='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.2.0/mapbox-gl-geocoder.min.js'></script>
+    <link rel='stylesheet' href='https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.2.0/mapbox-gl-geocoder.css' type='text/css' />
+
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <style>
+
+      body {
+        color:#404040;
+        font:400 15px/22px 'Source Sans Pro', 'Helvetica Neue', Sans-serif;
+        margin:0;
+        padding:0;
+        -webkit-font-smoothing:antialiased;
+      }
+
+      * {
+        -webkit-box-sizing:border-box;
+        -moz-box-sizing:border-box;
+        box-sizing:border-box;
+      }
+
+      .sidebar {
+        position:absolute;
+        width:33.3333%;
+        height:100%;
+        top:0;left:0;
+        overflow:hidden;
+        border-right:1px solid rgba(0,0,0,0.25);
+      }
+      .pad2 {
+        padding:20px;
+      }
+
+      .map {
+        position:absolute;
+        left:33.3333%;
+        width:66.6666%;
+        top:0;bottom:0;
+      }
+
+      h1 {
+        font-size:22px;
+        margin:0;
+        font-weight:700;
+        line-height: 20px;
+        padding: 20px 2px;
+      }
+
+      a {
+        color:#404040;
+        text-decoration:none;
+      }
+
+      a:hover {
+        color:#101010;
+      }
+
+      .heading {
+        background:#fff;
+        border-bottom:1px solid #eee;
+        min-height:60px;
+        line-height:60px;
+        padding:0 10px;
+        background-color: #00853e;
+        color: #fff;
+      }
+
+      .listings {
+        height:100%;
+        overflow:auto;
+        padding-bottom:60px;
+      }
+
+      .listings .item {
+        display:block;
+        border-bottom:1px solid #eee;
+        padding:10px;
+        text-decoration:none;
+      }
+
+      .listings .item:last-child { border-bottom:none; }
+      .listings .item .title {
+        display:block;
+        color:#00853e;
+        font-weight:700;
+      }
+
+      .listings .item .title small { font-weight:400; }
+      .listings .item.active .title,
+      .listings .item .title:hover { color:#8cc63f; }
+      .listings .item.active {
+        background-color:#f8f8f8;
+      }
+      ::-webkit-scrollbar {
+        width:3px;
+        height:3px;
+        border-left:0;
+        background:rgba(0,0,0,0.1);
+      }
+      ::-webkit-scrollbar-track {
+        background:none;
+      }
+      ::-webkit-scrollbar-thumb {
+        background:#00853e;
+        border-radius:0;
+      }
+
+      .marker {
+        border: none;
+        cursor: pointer;
+        height: 56px;
+        width: 56px;
+        background-image: url(marker.svg);
+        background-color: rgba(0, 0, 0, 0);
+      }
+
+      .clearfix { display:block; }
+      .clearfix:after {
+        content:'.';
+        display:block;
+        height:0;
+        clear:both;
+        visibility:hidden;
+      }
+
+      .mapboxgl-popup {
+        padding-bottom: 50px;
+      }
+
+      .mapboxgl-popup-close-button {
+        display:none;
+      }
+      .mapboxgl-popup-content {
+        font:400 15px/22px 'Source Sans Pro', 'Helvetica Neue', Sans-serif;
+        padding:0;
+        width:250px;
+      }
+      .mapboxgl-popup-content-wrapper {
+        padding:1%;
+      }
+      .mapboxgl-popup-content h3 {
+        background:#00853e;
+        color:#fff;
+        margin:0;
+        display:block;
+        padding:10px;
+        border-radius:3px 3px 0 0;
+        font-weight:700;
+        margin-top:-15px;
+      }
+
+      .mapboxgl-popup-content h4 {
+        margin:0;
+        display:block;
+        padding: 10px 10px 10px 10px;
+        font-weight:400;
+      }
+
+      .mapboxgl-popup-content div {
+        padding:10px;
+      }
+
+      .mapboxgl-container .leaflet-marker-icon {
+        cursor:pointer;
+      }
+
+      .mapboxgl-popup-anchor-top > .mapboxgl-popup-content {
+        margin-top: 15px;
+      }
+
+      .mapboxgl-popup-anchor-top > .mapboxgl-popup-tip {
+        border-bottom-color: #00853e;
+      }
+
+      .mapboxgl-ctrl-geocoder {
+        border: 2px solid #00853e;
+        border-radius: 0;
+        position: relative;
+        top: 0;
+        width: 800px;
+        margin-top: 0;
+        border: 0;
+      }
+
+      .mapboxgl-ctrl-geocoder > div {
+        min-width:100%;
+        margin-left:0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='sidebar'>
+      <div class='heading'>
+        <h1>LES PHARMACIES RENNAISES</h1>
+      </div>
+      <div id='listings' class='listings'></div>
+    </div>
+    <div id='map' class='map'> </div>
+    <script>
+
+      if (!('remove' in Element.prototype)) {
+        Element.prototype.remove = function() {
+          if (this.parentNode) {
+              this.parentNode.removeChild(this);
+          }
+        };
+      }
+
+      mapboxgl.accessToken = 'pk.eyJ1IjoiZGFtaWVuZGVjZWxsZSIsImEiOiJjazk0YTRpbnkwM2plM21vdWpnNXd1Z3JqIn0.9QS_uhJsKQ7iGH-urTNUGg';
+
+      var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v11',
+        maxBounds: [
+                [-1.7337790903083805, 48.075932571834585],
+                [-1.5964499824887026, 48.14882670543341] 
+            ], 
+      });
+
+      var stores = {
+"type": "FeatureCollection",
+"name": "pharmacies_rennes",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "SIRET": "384 511 614 00024", "Tel": "02 99 50 58 33 ", "Fax": "02 99 51 99 05", "latitude": 48.085477, "longitude": -1.692908, "result_label": "1 Place Albert Bayet 35200 Rennes", "raison_sociale": "PHARMACIE DE BREQUIGNY" }, "geometry": { "type": "Point", "coordinates": [ -1.692908, 48.085477 ] } },
+{ "type": "Feature", "properties": { "SIRET": "485 155 394 00011", "Tel": "02 99 50 94 94 ", "Fax": "02 99 50 48 68", "latitude": 48.095857, "longitude": -1.65124, "result_label": "113 Rue de Vern 35200 Rennes", "raison_sociale": "PHARMACIE DE BEL AIR" }, "geometry": { "type": "Point", "coordinates": [ -1.65124, 48.095857 ] } },
+{ "type": "Feature", "properties": { "SIRET": "809 192 685 00026", "Tel": "02 99 36 14 07 ", "Fax": "02 56 00 00 80", "latitude": 48.122465, "longitude": -1.661623, "result_label": "175 Rue de Fougères 35700 Rennes", "raison_sociale": "SELARL PHARMACIE DE MAUREPAS" }, "geometry": { "type": "Point", "coordinates": [ -1.661623, 48.122465 ] } },
+{ "type": "Feature", "properties": { "SIRET": "500 627 849 00028", "Tel": "", "Fax": null, "latitude": 48.092146, "longitude": -1.678614, "result_label": "8 Rue du Chasseur 35200 Rennes", "raison_sociale": "SELARL PHARMACIE PAILHERET-DORE BONTE" }, "geometry": { "type": "Point", "coordinates": [ -1.678614, 48.092146 ] } },
+{ "type": "Feature", "properties": { "SIRET": "303 860 738 00010", "Tel": "02 99 36 73 65 ", "Fax": null, "latitude": 48.109526, "longitude": -1.65665, "result_label": "84 Rue Alphonse Guérin 35000 Rennes", "raison_sociale": "PHARMACIE  GAUTIER" }, "geometry": { "type": "Point", "coordinates": [ -1.65665, 48.109526 ] } },
+{ "type": "Feature", "properties": { "SIRET": "498 836 378 00014", "Tel": "02 99 59 21 00 ", "Fax": "02 99 33 28 44", "latitude": 48.118458, "longitude": -1.689348, "result_label": "49 Boulevard de Verdun 35000 Rennes", "raison_sociale": "SELURL PHARMACIE ANATOLE FRANCE" }, "geometry": { "type": "Point", "coordinates": [ -1.689348, 48.118458 ] } },
+{ "type": "Feature", "properties": { "SIRET": "530 408 673 00016", "Tel": "02 99 50 74 92 ", "Fax": "02 99 32 25 29", "latitude": 48.095597, "longitude": -1.667681, "result_label": "61 Rue Bigot de Préameneu 35000 Rennes", "raison_sociale": "EURL PHARMACIE SAINTE THERESE GUINODA" }, "geometry": { "type": "Point", "coordinates": [ -1.667681, 48.095597 ] } },
+{ "type": "Feature", "properties": { "SIRET": "379 805 732 00011", "Tel": "02 99 38 41 50 ", "Fax": "02 99 63 98 30", "latitude": 48.131188, "longitude": -1.632722, "result_label": "6 Allée Morvan Lebesque 35700 Rennes", "raison_sociale": "SELARL  LONGS CHAMPS" }, "geometry": { "type": "Point", "coordinates": [ -1.632536411407984, 48.130766034125095 ] } },
+{ "type": "Feature", "properties": { "SIRET": "403 922 677 00022", "Tel": "02 99 67 31 88 ", "Fax": "02 99 67 15 54", "latitude": 48.100288, "longitude": -1.702909, "result_label": "46 Rue Jules Lallemand 35000 Rennes", "raison_sociale": "PHARMACIE NGUYEN" }, "geometry": { "type": "Point", "coordinates": [ -1.707307041743774, 48.100463469848336 ] } },
+{ "type": "Feature", "properties": { "SIRET": "494 041 874 00012", "Tel": "02 99 59 15 43 ", "Fax": "02 99 59 15 43", "latitude": 48.112767, "longitude": -1.688503, "result_label": "8 Rue de Brest 35000 Rennes", "raison_sociale": "SELARL PHIE DES HORIZONS" }, "geometry": { "type": "Point", "coordinates": [ -1.688503, 48.112767 ] } },
+{ "type": "Feature", "properties": { "SIRET": "789 185 741 00012", "Tel": "02 23 20 55 00 ", "Fax": "02 23 20 56 05", "latitude": 48.110463, "longitude": -1.665792, "result_label": "1 Rue de Châteaudun 35000 Rennes", "raison_sociale": "PHARMACIE PONT DE CHATEAUDUN" }, "geometry": { "type": "Point", "coordinates": [ -1.665792, 48.110463 ] } },
+{ "type": "Feature", "properties": { "SIRET": "843 411 828 00018", "Tel": "02 99 79 26 94 ", "Fax": "02 99 79 32 79", "latitude": 48.109438, "longitude": -1.677728, "result_label": "1 Rue du Pré Botté 35000 Rennes", "raison_sociale": "PHARMACIE REPUBLIQUE PRE BOTTE" }, "geometry": { "type": "Point", "coordinates": [ -1.677728, 48.109438 ] } },
+{ "type": "Feature", "properties": { "SIRET": "392 066 247 00017", "Tel": "02 99 79 58 50 ", "Fax": "02 99 79 16 77", "latitude": 48.108711, "longitude": -1.680049, "result_label": "7 Rue de Nemours 35000 Rennes", "raison_sociale": "PHARMACIE  DE  NEMOURS" }, "geometry": { "type": "Point", "coordinates": [ -1.680049, 48.108711 ] } },
+{ "type": "Feature", "properties": { "SIRET": "534 952 379 00012", "Tel": "02 99 31 31 22 ", "Fax": "02 99 31 53 39", "latitude": 48.106515, "longitude": -1.667966, "result_label": "59 Rue Saint-hélier 35000 Rennes", "raison_sociale": "EURL PHARMACIE LAVAL" }, "geometry": { "type": "Point", "coordinates": [ -1.667966, 48.106515 ] } },
+{ "type": "Feature", "properties": { "SIRET": "389 922 212 00011", "Tel": "02 99 51 62 81 ", "Fax": null, "latitude": 48.086318, "longitude": -1.675446, "result_label": "30 Avenue Henri Fréville 35200 Rennes", "raison_sociale": "PHARMACIE DESPONDS" }, "geometry": { "type": "Point", "coordinates": [ -1.675446, 48.086318 ] } },
+{ "type": "Feature", "properties": { "SIRET": "398 741 090 00011", "Tel": "02 99 50 41 61 ", "Fax": "02 99 51 79 68", "latitude": 48.091056, "longitude": -1.65694, "result_label": "14 Boulevard Léon Grimault 35200 Rennes", "raison_sociale": "PHARMACIE JOINAIE" }, "geometry": { "type": "Point", "coordinates": [ -1.652488593038376, 48.090930673948868 ] } },
+{ "type": "Feature", "properties": { "SIRET": "507 906 162 00015", "Tel": "02 99 79 10 30 ", "Fax": "02 99 79 71 42", "latitude": 48.113319, "longitude": -1.681442, "result_label": "1 Place Saint-michel 35000 Rennes", "raison_sociale": "SARL PHARMACIE LAMAZURE" }, "geometry": { "type": "Point", "coordinates": [ -1.681442, 48.113319 ] } },
+{ "type": "Feature", "properties": { "SIRET": "313 227 092 00043", "Tel": "02 99 38 74 89 ", "Fax": "02 99 38 54 98", "latitude": 48.113889, "longitude": -1.677417, "result_label": "13 Rue Hoche 35000 Rennes", "raison_sociale": "PHARMACIE DEBRIE-FUR" }, "geometry": { "type": "Point", "coordinates": [ -1.677417, 48.113889 ] } },
+{ "type": "Feature", "properties": { "SIRET": "853 870 426 00014", "Tel": "02 99 50 65 89 ", "Fax": "02 99 51 59 66", "latitude": 48.091131, "longitude": -1.665461, "result_label": "32 Boulevard Oscar Leroux 35200 Rennes", "raison_sociale": "BINQUENAIS PHARMACIE" }, "geometry": { "type": "Point", "coordinates": [ -1.665461, 48.091131 ] } },
+{ "type": "Feature", "properties": { "SIRET": "514 111 616 00017", "Tel": "02 99 36 05 43 ", "Fax": "02 99 27 04 90", "latitude": 48.114407, "longitude": -1.657968, "result_label": "92 Rue de Paris 35000 Rennes", "raison_sociale": "PHARMACIE BOUESNARD" }, "geometry": { "type": "Point", "coordinates": [ -1.657968, 48.114407 ] } },
+{ "type": "Feature", "properties": { "SIRET": "523 197 705 00016", "Tel": "02 99 63 10 02 ", "Fax": "02 99 36 32 49", "latitude": 48.12647, "longitude": -1.665041, "result_label": "3 Rue Cardinal Charost 35700 Rennes", "raison_sociale": "SELARL ARNAUD - EVEN" }, "geometry": { "type": "Point", "coordinates": [ -1.664708647617065, 48.126396590493002 ] } },
+{ "type": "Feature", "properties": { "SIRET": "794 642 058 00018", "Tel": "02 99 79 05 60 ", "Fax": "02 99 79 64 90", "latitude": 48.110959, "longitude": -1.681607, "result_label": "1 Rue du Chapitre 35000 Rennes", "raison_sociale": "SELARL PHARMACIE DU CHAPITRE" }, "geometry": { "type": "Point", "coordinates": [ -1.681607, 48.110959 ] } },
+{ "type": "Feature", "properties": { "SIRET": "433 758 844 00016", "Tel": "02 99 38 43 34 ", "Fax": "02 99 87 24 40", "latitude": 48.136496, "longitude": -1.661344, "result_label": "329 Avenue des Monts d'Arrée 35700 Rennes", "raison_sociale": "PHARMACIE CRISTINI" }, "geometry": { "type": "Point", "coordinates": [ -1.668097400421247, 48.136163705171491 ] } },
+{ "type": "Feature", "properties": { "SIRET": "404 146 276 00013", "Tel": "02 99 50 89 67 ", "Fax": null, "latitude": 48.093056, "longitude": -1.658721, "result_label": "42 Rue Paul Langevin 35200 Rennes", "raison_sociale": "SELARL EJ. MARLIN" }, "geometry": { "type": "Point", "coordinates": [ -1.658721, 48.093056 ] } },
+{ "type": "Feature", "properties": { "SIRET": "789 095 163 00018", "Tel": "02 99 50 12 02 ", "Fax": "02 99 51 78 36", "latitude": 48.094395, "longitude": -1.685939, "result_label": "50 Boulevard Georges Clemenceau 35200 Rennes", "raison_sociale": "PHARMACIE KERANGAL" }, "geometry": { "type": "Point", "coordinates": [ -1.685939, 48.094395 ] } },
+{ "type": "Feature", "properties": { "SIRET": "477 870 133 00022", "Tel": "02 99 65 06 18 ", "Fax": "09 57 55 37 87", "latitude": 48.100909, "longitude": -1.685108, "result_label": "125 Rue de Nantes 35000 Rennes", "raison_sociale": "PHARMACIE LEBOSSE" }, "geometry": { "type": "Point", "coordinates": [ -1.685108, 48.100909 ] } },
+{ "type": "Feature", "properties": { "SIRET": "753 875 236 00014", "Tel": "02 99 50 03 43 ", "Fax": "02 23 35 04 34", "latitude": 48.08611, "longitude": -1.667559, "result_label": "2 Rue de Suisse 35200 Rennes", "raison_sociale": "SELARL PHARMACIE ANNE - FEREC" }, "geometry": { "type": "Point", "coordinates": [ -1.667559, 48.08611 ] } },
+{ "type": "Feature", "properties": { "SIRET": "851 382 309 00017", "Tel": "02 99 59 18 88 ", "Fax": "02 99 59 04 12", "latitude": 48.112469, "longitude": -1.693827, "result_label": "25 Rue de Brest 35000 Rennes", "raison_sociale": "PHARMACIE SAINT-CYR" }, "geometry": { "type": "Point", "coordinates": [ -1.693827, 48.112469 ] } },
+{ "type": "Feature", "properties": { "SIRET": "404 869 265 00011", "Tel": "02 99 59 18 91 ", "Fax": "02 99 54 53 20", "latitude": 48.123439, "longitude": -1.708821, "result_label": "34 Avenue Sir Winston Churchill 35000 Rennes", "raison_sociale": "PHARMACIE SALMON" }, "geometry": { "type": "Point", "coordinates": [ -1.708821, 48.123439 ] } },
+{ "type": "Feature", "properties": { "SIRET": "752 761 700 00018", "Tel": "02 99 65 10 03 ", "Fax": "02 99 65 03 37", "latitude": 48.097562, "longitude": -1.688409, "result_label": "195 Rue de Nantes 35000 Rennes", "raison_sociale": "EURL PHARMACIE DE LA MADELEINE" }, "geometry": { "type": "Point", "coordinates": [ -1.688409, 48.097562 ] } },
+{ "type": "Feature", "properties": { "SIRET": "824 566 038 00017", "Tel": "02 99 67 31 29 ", "Fax": "02 99 65 44 06", "latitude": 48.103711, "longitude": -1.711059, "result_label": "2 Rue Jules Vallès 35000 Rennes", "raison_sociale": "SELARL BACHY" }, "geometry": { "type": "Point", "coordinates": [ -1.715264768336783, 48.104608435439509 ] } },
+{ "type": "Feature", "properties": { "SIRET": "878 352 897 00010", "Tel": "02 99 59 10 76 ", "Fax": "02 99 33 12 38", "latitude": 48.110188, "longitude": -1.687612, "result_label": "18 Mail François Mitterrand 35000 Rennes", "raison_sociale": "PHARMACIE DU MAIL" }, "geometry": { "type": "Point", "coordinates": [ -1.687612, 48.110188 ] } },
+{ "type": "Feature", "properties": { "SIRET": "489 532 994 00030", "Tel": "02 99 79 17 93 ", "Fax": "02 99 79 74 93", "latitude": 48.111195, "longitude": -1.677724, "result_label": "2 Rue Edith Cavell 35000 Rennes", "raison_sociale": "SELARL PHARMACIE LUCAS" }, "geometry": { "type": "Point", "coordinates": [ -1.677724, 48.111195 ] } },
+{ "type": "Feature", "properties": { "SIRET": "832 452 155 00019", "Tel": "02 99 50 41 70 ", "Fax": "02 99 50 41 70", "latitude": 48.084699, "longitude": -1.650471, "result_label": "15 Avenue de Pologne 35200 Rennes", "raison_sociale": "PHARMACIE SAINTE-ELISABETH" }, "geometry": { "type": "Point", "coordinates": [ -1.650471, 48.084699 ] } },
+{ "type": "Feature", "properties": { "SIRET": "879 711 406 00014", "Tel": "02 99 59 21 25 ", "Fax": "02 99 54 19 27", "latitude": 48.11789, "longitude": -1.707701, "result_label": "6 Avenue Sir Winston Churchill 35000 Rennes", "raison_sociale": "PHARMACIE CHURCHILL" }, "geometry": { "type": "Point", "coordinates": [ -1.707701, 48.11789 ] } },
+{ "type": "Feature", "properties": { "SIRET": "487 771 081 00022", "Tel": "", "Fax": null, "latitude": 48.119582, "longitude": -1.667007, "result_label": "109 Rue de Fougères 35700 Rennes", "raison_sociale": "PHARMACIE DE LA CROIX CARREE" }, "geometry": { "type": "Point", "coordinates": [ -1.667007, 48.119582 ] } },
+{ "type": "Feature", "properties": { "SIRET": "539 269 480 00015", "Tel": "02 99 65 02 82 ", "Fax": "02 99 30 40 52", "latitude": 48.105102, "longitude": -1.690717, "result_label": "19 Rue de Redon 35000 Rennes", "raison_sociale": "PHARMACIE MABILAIS" }, "geometry": { "type": "Point", "coordinates": [ -1.690717, 48.105102 ] } },
+{ "type": "Feature", "properties": { "SIRET": "881 243 158 00014", "Tel": "02 99 30 56 51 ", "Fax": "02 99 65 50 05", "latitude": 48.112624, "longitude": -1.68531, "result_label": "14 Place du Bas des Lices 35000 Rennes", "raison_sociale": "PHARMACIE DES LICES" }, "geometry": { "type": "Point", "coordinates": [ -1.68531, 48.112624 ] } },
+{ "type": "Feature", "properties": { "SIRET": "423 785 302 00013", "Tel": "02 99 50 87 85 ", "Fax": "02 23 30 41 94", "latitude": 48.093789, "longitude": -1.671981, "result_label": "117 Boulevard Georges Clemenceau 35200 Rennes", "raison_sociale": "PHARMACIE BLIN - DUBEE" }, "geometry": { "type": "Point", "coordinates": [ -1.671981, 48.093789 ] } },
+{ "type": "Feature", "properties": { "SIRET": "729 200 782 00013", "Tel": "02 99 30 82 03 ", "Fax": null, "latitude": 48.107628, "longitude": -1.677943, "result_label": "26 Rue Maréchal Joffre 35000 Rennes", "raison_sociale": "PHARMACIE REMY" }, "geometry": { "type": "Point", "coordinates": [ -1.677943, 48.107628 ] } },
+{ "type": "Feature", "properties": { "SIRET": "338 803 018 00047", "Tel": "02 99 38 18 13 ", "Fax": "02 99 34 43 61", "latitude": 48.128896, "longitude": -1.699088, "result_label": "7 Place Eugène Aulnette 35000 Rennes", "raison_sociale": "PHARMACIE LE BIHAN" }, "geometry": { "type": "Point", "coordinates": [ -1.699088, 48.128896 ] } },
+{ "type": "Feature", "properties": { "SIRET": "331 093 344 00017", "Tel": "02 99 59 07 62 ", "Fax": "02 99 59 12 29", "latitude": 48.122217, "longitude": -1.683675, "result_label": "196 Rue de Saint-malo 35000 Rennes", "raison_sociale": "PHARMACIE QUEGUINER LEHEUP" }, "geometry": { "type": "Point", "coordinates": [ -1.683675, 48.122217 ] } },
+{ "type": "Feature", "properties": { "SIRET": "750 996 050 00027", "Tel": "", "Fax": null, "latitude": 48.1303, "longitude": -1.657288, "result_label": "34 Place Lucie et Raymond Aubrac 35700 Rennes", "raison_sociale": "PHARMACIE DU GAST" }, "geometry": { "type": "Point", "coordinates": [ -1.657288, 48.1303 ] } },
+{ "type": "Feature", "properties": { "SIRET": "315 448 704 00017", "Tel": "02 99 59 21 56 ", "Fax": null, "latitude": 48.108224, "longitude": -1.703498, "result_label": "48 Rue de Lorient 35000 Rennes", "raison_sociale": "PHARMACIE ROCHARD" }, "geometry": { "type": "Point", "coordinates": [ -1.703498, 48.108224 ] } },
+{ "type": "Feature", "properties": { "SIRET": "514 126 416 00015", "Tel": "02 99 51 37 19 ", "Fax": "02 99 41 74 98", "latitude": 48.097462, "longitude": -1.641514, "result_label": "167 Rue de Châteaugiron 35000 Rennes", "raison_sociale": "PHARMACIE DU LANDRY" }, "geometry": { "type": "Point", "coordinates": [ -1.641514, 48.097462 ] } },
+{ "type": "Feature", "properties": { "SIRET": "833 234 917 00015", "Tel": "02 99 31 48 37 ", "Fax": "02 99 35 08 22", "latitude": 48.104895, "longitude": -1.679336, "result_label": "10 Place du Colombier 35000 Rennes", "raison_sociale": "GRANDE PHARMACIE DE RENNES" }, "geometry": { "type": "Point", "coordinates": [ -1.679336, 48.104895 ] } },
+{ "type": "Feature", "properties": { "SIRET": "514 867 209 00017", "Tel": "02 99 65 08 08 ", "Fax": "02 99 65 47 77", "latitude": 48.10467, "longitude": -1.680479, "result_label": "40 Place du Colombier 35000 Rennes", "raison_sociale": "PHARMACIE COLOMBIA" }, "geometry": { "type": "Point", "coordinates": [ -1.680479, 48.10467 ] } },
+{ "type": "Feature", "properties": { "SIRET": "483 416 756 00011", "Tel": "02 99 30 44 94 ", "Fax": null, "latitude": 48.107251, "longitude": -1.673533, "result_label": "2 Avenue Jean Janvier 35000 Rennes", "raison_sociale": "PHARMACIE PIPET" }, "geometry": { "type": "Point", "coordinates": [ -1.673533, 48.107251 ] } },
+{ "type": "Feature", "properties": { "SIRET": "824 527 949 00013", "Tel": "02 99 30 12 19 ", "Fax": "02 99 30 11 94", "latitude": 48.109517, "longitude": -1.684779, "result_label": "2 Place de Bretagne 35000 Rennes", "raison_sociale": "SELARL PHARMACIE BLOT" }, "geometry": { "type": "Point", "coordinates": [ -1.684779, 48.109517 ] } },
+{ "type": "Feature", "properties": { "SIRET": "432 592 665 00017", "Tel": "02 99 50 30 91 ", "Fax": null, "latitude": 48.093659, "longitude": -1.663056, "result_label": "5 Rue Yvonnick Laurent 35200 Rennes", "raison_sociale": "PHARMACIE BIGOT-LABBE" }, "geometry": { "type": "Point", "coordinates": [ -1.663056, 48.093659 ] } },
+{ "type": "Feature", "properties": { "SIRET": "793 851 783 00019", "Tel": "02 99 30 79 96 ", "Fax": "02 99 30 11 94", "latitude": 48.118473, "longitude": -1.681157, "result_label": "9 Square de la Rance 35000 Rennes", "raison_sociale": "EURL PHARMACIE CAR" }, "geometry": { "type": "Point", "coordinates": [ -1.681157, 48.118473 ] } },
+{ "type": "Feature", "properties": { "SIRET": "347 432 965 00015", "Tel": "02 99 50 62 87 ", "Fax": null, "latitude": 48.084957, "longitude": -1.660178, "result_label": "Boulevard de Bulgarie 35200 Rennes", "raison_sociale": "PHARMACIE TROTIN" }, "geometry": { "type": "Point", "coordinates": [ -1.657109669926498, 48.084959043599355 ] } },
+{ "type": "Feature", "properties": { "SIRET": "809 269 863 00019", "Tel": "02 99 50 59 72 ", "Fax": "02 99 32 11 40", "latitude": 48.103415, "longitude": -1.661704, "result_label": "125 Rue Saint-hélier 35000 Rennes", "raison_sociale": "PHARMACIE SAINT-HELIER" }, "geometry": { "type": "Point", "coordinates": [ -1.661704, 48.103415 ] } },
+{ "type": "Feature", "properties": { "SIRET": "789 986 858 00015", "Tel": "02 99 50 57 23 ", "Fax": "02 99 41 89 76", "latitude": 48.098314, "longitude": -1.65555, "result_label": "3 Boulevard Léon Bourgeois 35000 Rennes", "raison_sociale": "PHARMACIE LEON BOURGEOIS" }, "geometry": { "type": "Point", "coordinates": [ -1.65555, 48.098314 ] } },
+{ "type": "Feature", "properties": { "SIRET": "539 394 395 00013", "Tel": "02 99 38 71 85 ", "Fax": "02 99 84 00 11", "latitude": 48.114845, "longitude": -1.679375, "result_label": "5 Rue d'Antrain 35700 Rennes", "raison_sociale": "SELARL PHARMACIE DU PROGRES" }, "geometry": { "type": "Point", "coordinates": [ -1.679375, 48.114845 ] } },
+{ "type": "Feature", "properties": { "SIRET": "825 127 756 00013", "Tel": "02 99 50 76 42 ", "Fax": "02 99 53 02 97", "latitude": 48.08257, "longitude": -1.680414, "result_label": "7 Rue du Bosphore 35200 Rennes", "raison_sociale": "PHARMACIE DU CENTRE ALMA" }, "geometry": { "type": "Point", "coordinates": [ -1.678800806854011, 48.082661284924882 ] } },
+{ "type": "Feature", "properties": { "SIRET": "400 987 343 00011", "Tel": "02 99 36 30 96 ", "Fax": "02 99 36 92 95", "latitude": 48.116236, "longitude": -1.674031, "result_label": "4 Rue du Général Maurice Guillaudot 35000 Rennes", "raison_sociale": "PHARMACIE DENOUAL-MEUNIEER" }, "geometry": { "type": "Point", "coordinates": [ -1.674031, 48.116236 ] } },
+{ "type": "Feature", "properties": { "SIRET": "383 043 460 00021", "Tel": "02 99 53 66 45 ", "Fax": "02 99 51 43 83", "latitude": 48.091641, "longitude": -1.641046, "result_label": "2 Place du Ronceray 35000 Rennes", "raison_sociale": "PHARMACIE DOUMALIN-ROLLAND" }, "geometry": { "type": "Point", "coordinates": [ -1.641046, 48.091641 ] } },
+{ "type": "Feature", "properties": { "SIRET": "485 070 320 00018", "Tel": "02 99 33 85 25 ", "Fax": "02 99 59 10 34", "latitude": 48.121312, "longitude": -1.709801, "result_label": "33 Cours Président John Fitzgerald Kennedy 35000 Rennes", "raison_sociale": "SELARL PHARMACIE FRABOULET-CHEVALIER" }, "geometry": { "type": "Point", "coordinates": [ -1.709801, 48.121312 ] } },
+{ "type": "Feature", "properties": { "SIRET": "752 683 565 00010", "Tel": "02 23 35 54 29 ", "Fax": "09 83 39 94 29", "latitude": 48.097629, "longitude": -1.675347, "result_label": "104 Rue de l'Alma 35000 Rennes", "raison_sociale": "PHARMACIE METRO JACQUES CARTIER" }, "geometry": { "type": "Point", "coordinates": [ -1.675347, 48.097629 ] } }
+]
+};
+
+      stores.features.forEach(function(store, i){
+        store.properties.id = i;
+      });
+
+      map.on('load', function (e) {
+
+        map.addSource("places", {
+          "type": "geojson",
+          "data": stores
+        });
+
+        var geocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            marker: true,
+            bbox: [-1.7337790903083805, 48.075932571834585, -1.5964499824887026, 48.14882670543341]
+        });
+
+        buildLocationList(stores);
+        map.addControl(geocoder, 'top-left');
+        addMarkers();
+
+        geocoder.on('result', function(ev) {
+
+          var searchResult = ev.result.geometry;
+
+          var options = { units: 'kilometers' };
+          stores.features.forEach(function(store){
+            Object.defineProperty(store.properties, 'distance', {
+              value: turf.distance(searchResult, store.geometry, options),
+              writable: true,
+              enumerable: true,
+              configurable: true
+            });
+          });
+
+          stores.features.sort(function(a,b){
+            if (a.properties.distance > b.properties.distance) {
+              return 1;
+            }
+            if (a.properties.distance < b.properties.distance) {
+              return -1;
+            }
+            return 0;
+          });
+
+          var listings = document.getElementById('listings');
+          while (listings.firstChild) {
+            listings.removeChild(listings.firstChild);
+          }
+          buildLocationList(stores);
+
+          createPopUp(stores.features[0]);
+
+          var activeListing = document.getElementById('listing-' + stores.features[0].properties.id);
+          activeListing.classList.add('active');
+
+          var bbox = getBbox(stores, 0, searchResult);
+          map.fitBounds(bbox, {
+            padding: 100
+          });
+        });
+      });
+
+      function getBbox(sortedStores, storeIdentifier, searchResult) {
+        var lats = [sortedStores.features[storeIdentifier].geometry.coordinates[1], searchResult.coordinates[1]]
+        var lons = [sortedStores.features[storeIdentifier].geometry.coordinates[0], searchResult.coordinates[0]]
+        var sortedLons = lons.sort(function(a,b){
+            if (a > b) { return 1; }
+            if (a.distance < b.distance) { return -1; }
+            return 0;
+          });
+        var sortedLats = lats.sort(function(a,b){
+            if (a > b) { return 1; }
+            if (a.distance < b.distance) { return -1; }
+            return 0;
+          });
+        return [
+          [sortedLons[0], sortedLats[0]],
+          [sortedLons[1], sortedLats[1]]
+        ];
+      }
+
+      function addMarkers() {
+
+        stores.features.forEach(function(marker) {
+          var el = document.createElement('div');
+          el.id = "marker-" + marker.properties.id;
+          el.className = 'marker';
+
+          new mapboxgl.Marker(el, {offset: [0, -23]})
+          .setLngLat(marker.geometry.coordinates)
+          .addTo(map);
+
+          el.addEventListener('click', function(e){
+            flyToStore(marker);
+            createPopUp(marker);
+            var activeItem = document.getElementsByClassName('active');
+            e.stopPropagation();
+            if (activeItem[0]) {
+              activeItem[0].classList.remove('active');
+            }
+            var listing = document.getElementById('listing-' + marker.properties.id);
+            listing.classList.add('active');
+          });
+        });
+      }
+
+      function buildLocationList(data) {
+        data.features.forEach(function(store, i){
+
+          var prop = store.properties;
+
+          var listings = document.getElementById('listings');
+          var listing = listings.appendChild(document.createElement('div'));
+
+          listing.id = "listing-" + prop.id;
+
+          listing.className = 'item';
+
+          var link = listing.appendChild(document.createElement('a'));
+          link.href = '#';
+          link.className = 'title';
+          link.id = "link-" + prop.id;
+          link.innerHTML = prop.raison_sociale;
+
+          var details = listing.appendChild(document.createElement('div'));
+          details.innerHTML = prop.result_label;
+          if (prop.phone) {
+            details.innerHTML += ' · ' + prop.phoneFormatted;
+          }
+          if (prop.distance) {
+            var roundedDistance = Math.round(prop.distance*100)/100;
+            details.innerHTML += '<p><strong>À ' + roundedDistance + ' kilomètres</strong></p>';
+          }
+
+          link.addEventListener('click', function(e){
+            for (var i=0; i < data.features.length; i++) {
+              if (this.id === "link-" + data.features[i].properties.id) {
+                var clickedListing = data.features[i];
+                flyToStore(clickedListing);
+                createPopUp(clickedListing);
+              }
+            }
+            var activeItem = document.getElementsByClassName('active');
+            if (activeItem[0]) {
+              activeItem[0].classList.remove('active');
+            }
+            this.parentNode.classList.add('active');
+          });
+        });
+      }
+
+      function flyToStore(currentFeature) {
+        map.flyTo({
+            center: currentFeature.geometry.coordinates,
+            zoom: 15
+          });
+      }
+
+      function createPopUp(currentFeature) {
+        var popUps = document.getElementsByClassName('mapboxgl-popup');
+        if (popUps[0]) popUps[0].remove();
+
+        var popup = new mapboxgl.Popup({closeOnClick: false})
+          .setLngLat(currentFeature.geometry.coordinates)
+          .setHTML('<h3>' + currentFeature.properties.raison_sociale + '</h3>' +
+            '<h4>' + currentFeature.properties.result_label + '<br>' + 'Tel : ' + currentFeature.properties.Tel + '</h4>')
+          .addTo(map);
+      }
+
+      var nav = new mapboxgl.NavigationControl();
+      map.addControl(nav, 'top-right');
+
+      map.addControl(new mapboxgl.GeolocateControl({
+        positionOptions: {
+          enableHighAccuracy: true
+        },
+        trackUserLocation: true
+      }));
+
+    </script>
+  </body>
+</html>
